@@ -1,0 +1,28 @@
+[package]
+name = "bridge-fungible-token-contract"
+authors = ["Fuel Labs <contact@fuel.sh>"]
+categories = ["cryptography::cryptocurrencies"]
+edition = "2021"
+homepage = "https://fuel.network/"
+keywords = ["blockchain", "cryptocurrencies"]
+license = "Apache-2.0"
+repository = "https://github.com/FuelLabs/fuel-bridge"
+version = "0.3.0"
+rust-version = "1.72.0"
+publish = false
+
+[dependencies]
+fuel-asm = "0.43.1"
+fuel-tx = "0.43.1"
+fuel-core-types = { version = "0.22.0", default-features = false }
+fuels = { version = "0.55.0", features = ["fuel-core-lib"] }
+
+primitive-types = "0.12.1"
+sha3 = "0.10.1"
+tokio = { version = "1.32.0", features = ["rt", "macros"] }
+hex = "0.4.3"
+
+[[test]]
+harness = true
+name = "integration_tests"
+path = "tests/harness.rs"

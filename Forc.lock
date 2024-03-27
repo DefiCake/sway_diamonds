@@ -1,0 +1,27 @@
+[[package]]
+name = "core"
+source = "path+from-root-4F1FAAE4510FEB23"
+
+[[package]]
+name = "my-fuel-project"
+source = "member"
+dependencies = [
+    "reentrancy",
+    "src_20",
+    "std",
+]
+
+[[package]]
+name = "reentrancy"
+source = "git+https://github.com/FuelLabs/sway-libs?tag=v0.17.2#5d69f665207158517eba14c35c7d28cb1cb93aa9"
+dependencies = ["std"]
+
+[[package]]
+name = "src_20"
+source = "git+https://github.com/FuelLabs/sway-standards?tag=v0.2.2#6989cf8224b0d8aabea62f3d3c648fc754948705"
+dependencies = ["std"]
+
+[[package]]
+name = "std"
+source = "git+https://github.com/fuellabs/sway?tag=v0.51.1#d1e8f019c1da46273c3d3a72b385ce356ba2bc20"
+dependencies = ["core"]
