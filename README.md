@@ -2,7 +2,7 @@ Just forc build & cargo test
 
 ```
 forc --version
-forc 0.51.1
+forc 0.54.0
 ```
 
 ```

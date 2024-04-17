@@ -9,12 +9,20 @@ mod tests {
         programs::contract::LoadConfiguration,
     };
 
-    abigen!(Contract(
-        name = "MyContract",
-        abi = "out/debug/my-fuel-project-abi.json",
-    ));
+    abigen!(
+        Contract(
+            name = "MyContract",
+            abi = "implementation/out/debug/implementation-abi.json",
+        ),
+        Contract(
+            name = "Proxy",
+            abi = "proxy/out/debug/proxy-abi.json",
+        )
+    );
 
-    const CONTRACT_BINARY: &str = "out/debug/my-fuel-project.bin";
+    const CONTRACT_BINARY: &str = "implementation/out/debug/implementation.bin";
+    const PROXY_BINARY: &str = "proxy/out/debug/proxy.bin";
+
     pub const DEFAULT_COIN_AMOUNT: u64 = 1_000_000_000;
 
     fn create_wallet() -> WalletUnlocked {
@@ -55,27 +63,48 @@ mod tests {
 
         wallet.set_provider(provider.clone());
 
-        let load_configuration = LoadConfiguration::default();
+        let implementation_configuration = LoadConfiguration::default();
 
-        let test_contract_id =
-            Contract::load_from(CONTRACT_BINARY, load_configuration)
+        let implementation_contract_id =
+            Contract::load_from(CONTRACT_BINARY, implementation_configuration)
                 .unwrap()
                 .deploy(&wallet.clone(), Default::default())
                 .await
                 .unwrap();
 
 
-        let contract = MyContract::new(test_contract_id.clone(), wallet.clone());
+        let implementation = MyContract::new(implementation_contract_id.clone(), wallet.clone());
 
-        let value = 0u64;
-        let result = contract
+        let value = 5u64;
+        let result = implementation
             .methods()
-            .match_with_constants(value)
+            .double(value)
             .call()
             .await
             .unwrap();
 
-        assert_eq!(value, result.value);
+        assert_eq!(value * 2, result.value);
+
+        let proxy_configuration = LoadConfiguration::default()
+            .with_configurables(ProxyConfigurables::default().with_TARGET(implementation_contract_id.clone().into()));
+
+        let proxy_contract_id = Contract::load_from(PROXY_BINARY, proxy_configuration)
+            .unwrap()
+            .deploy(&wallet.clone(), Default::default())
+            .await
+            .unwrap();
+
+        let proxy = MyContract::new(proxy_contract_id, wallet.clone());
+
+        let proxy_result = proxy
+            .methods()
+            .double(value)
+            .with_contract_ids(&[implementation_contract_id])
+            .call()
+            .await
+            .unwrap();
+
+        assert_eq!(value * 2, proxy_result.value);
 
     }
 }
