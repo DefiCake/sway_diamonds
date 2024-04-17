@@ -10,23 +10,36 @@ use std::{
 
 configurable {
     TARGET: ContractId = ContractId::from(ZERO_B256),
+    INITIAL_OWNER: Option<Identity> = None
 }
 
 // Inspired by EIP-2535: Diamonds, Multifacet proxy
 #[namespace(diamonds)]
 storage {
     facets: StorageMap<u64, ContractId> = StorageMap {},
+    owner: Option<Identity> = None
 }
 
 abi Diamonds {
     #[storage(read, write)]
     fn set_facet_for_selector(method_selector: u64, facet: ContractId);
+
+    #[storage(read)]
+    fn _proxy_owner() -> Option<Identity>;
 }
 
 impl Diamonds for Contract {
     #[storage(read, write)]
     fn set_facet_for_selector(method_selector: u64, facet: ContractId) {
         storage.facets.insert(method_selector, facet);
+    }
+
+    #[storage(read)]
+    fn _proxy_owner() -> Option<Identity> {
+        match storage.owner.read() {
+            Some(value) => Some(value),
+            None => INITIAL_OWNER,
+        }
     }
 }
 
