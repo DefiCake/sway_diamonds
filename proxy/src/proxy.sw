@@ -1,16 +1,15 @@
 contract;
 
 use std::{
-    execution::run_external,
-    constants::ZERO_B256,
     call_frames::first_param,
+    constants::ZERO_B256,
+    execution::run_external,
     hash::Hash,
     hash::sha256,
 };
 
-
 configurable {
-    TARGET: ContractId = ContractId::from(ZERO_B256)
+    TARGET: ContractId = ContractId::from(ZERO_B256),
 }
 
 // Inspired by EIP-2535: Diamonds, Multifacet proxy
@@ -20,12 +19,12 @@ storage {
 }
 
 abi Diamonds {
-    #[storage(read,write)]
+    #[storage(read, write)]
     fn set_facet_for_selector(method_selector: u64, facet: ContractId);
 }
 
 impl Diamonds for Contract {
-    #[storage(read,write)]
+    #[storage(read, write)]
     fn set_facet_for_selector(method_selector: u64, facet: ContractId) {
         storage.facets.insert(method_selector, facet);
     }

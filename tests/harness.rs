@@ -5,8 +5,8 @@ mod tests {
     use fuels::{
         accounts::wallet::WalletUnlocked,
         prelude::{abigen, setup_test_provider, AssetId, Contract},
-        test_helpers::{setup_custom_assets_coins, AssetConfig},
         programs::contract::LoadConfiguration,
+        test_helpers::{setup_custom_assets_coins, AssetConfig},
     };
 
     abigen!(
@@ -14,10 +14,7 @@ mod tests {
             name = "MyContract",
             abi = "implementation/out/debug/implementation-abi.json",
         ),
-        Contract(
-            name = "Proxy",
-            abi = "proxy/out/debug/proxy-abi.json",
-        )
+        Contract(name = "Proxy", abi = "proxy/out/debug/proxy-abi.json",)
     );
 
     const CONTRACT_BINARY: &str = "implementation/out/debug/implementation.bin";
@@ -38,28 +35,26 @@ mod tests {
         wallet
     }
 
-    #[tokio::test]
-    async fn test_function() {
+    async fn setup_env() -> (
+        MyContract<WalletUnlocked>,
+        MyContract<WalletUnlocked>,
+        WalletUnlocked,
+    ) {
         let mut wallet = create_wallet();
         let coin = (DEFAULT_COIN_AMOUNT, AssetId::default());
 
         // Generate coins for wallet
         let asset_configs = vec![AssetConfig {
-                id: coin.1,
-                num_coins: 1,
-                coin_amount: coin.0,
+            id: coin.1,
+            num_coins: 1,
+            coin_amount: coin.0,
         }];
 
         let all_coins = setup_custom_assets_coins(wallet.address(), &asset_configs[..]);
-  
-        let provider = setup_test_provider(
-            all_coins.clone(),
-            vec![],
-            None,
-            None,
-        )
-        .await
-        .expect("Could not instantiate provider");
+
+        let provider = setup_test_provider(all_coins.clone(), vec![], None, None)
+            .await
+            .expect("Could not instantiate provider");
 
         wallet.set_provider(provider.clone());
 
@@ -72,21 +67,9 @@ mod tests {
                 .await
                 .unwrap();
 
-
-        let implementation = MyContract::new(implementation_contract_id.clone(), wallet.clone());
-
-        let value = 5u64;
-        let result = implementation
-            .methods()
-            .double(value)
-            .call()
-            .await
-            .unwrap();
-
-        assert_eq!(value * 2, result.value);
-
-        let proxy_configuration = LoadConfiguration::default()
-            .with_configurables(ProxyConfigurables::default().with_TARGET(implementation_contract_id.clone().into()));
+        let proxy_configuration = LoadConfiguration::default().with_configurables(
+            ProxyConfigurables::default().with_TARGET(implementation_contract_id.clone().into()),
+        );
 
         let proxy_contract_id = Contract::load_from(PROXY_BINARY, proxy_configuration)
             .unwrap()
@@ -94,17 +77,27 @@ mod tests {
             .await
             .unwrap();
 
+        let implementation = MyContract::new(implementation_contract_id.clone(), wallet.clone());
         let proxy = MyContract::new(proxy_contract_id, wallet.clone());
+
+        (proxy, implementation, wallet)
+    }
+
+    #[tokio::test]
+    async fn test_function() {
+        let (proxy, implementation, _) = setup_env().await;
+
+        let value = 5u64;
+        let result = implementation.methods().double(value).call().await.unwrap();
+        assert_eq!(value * 2, result.value);
 
         let proxy_result = proxy
             .methods()
             .double(value)
-            .with_contract_ids(&[implementation_contract_id])
+            .with_contract_ids(&[implementation.contract_id().clone().into()])
             .call()
             .await
             .unwrap();
-
         assert_eq!(value * 2, proxy_result.value);
-
     }
 }

@@ -1,5 +1,2 @@
 [workspace]
-members = [
-  "implementation",
-  "proxy"
-]
+members = ["implementation", "proxy"]
