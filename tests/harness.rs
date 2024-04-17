@@ -2,11 +2,12 @@ mod tests {
     use std::mem::size_of;
 
     use fuel_core_types::fuel_vm::SecretKey;
+    use fuel_tx::{GasCosts, GasCostsValues};
     use fuels::{
-        accounts::wallet::WalletUnlocked,
+        accounts::{provider::Provider, wallet::WalletUnlocked, Account},
         prelude::{abigen, setup_test_provider, AssetId, Contract},
-        programs::contract::LoadConfiguration,
-        test_helpers::{setup_custom_assets_coins, AssetConfig},
+        programs::{call_response::FuelCallResponse, contract::LoadConfiguration},
+        test_helpers::{setup_custom_assets_coins, AssetConfig, Config}, types::{transaction::TxPolicies, tx_status::TxStatus},
     };
 
     abigen!(
@@ -22,16 +23,21 @@ mod tests {
 
     pub const DEFAULT_COIN_AMOUNT: u64 = 1_000_000_000;
 
-    fn create_wallet() -> WalletUnlocked {
+    async fn create_wallet(provider: Option<Provider>, fund_with_wallet: Option<WalletUnlocked>) -> WalletUnlocked {
         const SIZE_SECRET_KEY: usize = size_of::<SecretKey>();
         const PADDING_BYTES: usize = SIZE_SECRET_KEY - size_of::<u64>();
         let mut secret_key: [u8; SIZE_SECRET_KEY] = [0; SIZE_SECRET_KEY];
         secret_key[PADDING_BYTES..].copy_from_slice(&(8320147306839812359u64).to_be_bytes());
 
-        let wallet = WalletUnlocked::new_from_private_key(
-            SecretKey::try_from(secret_key.as_slice()).unwrap(),
-            None,
-        );
+        let wallet = WalletUnlocked::new_random(provider);
+
+        if let Some(funding_wallet) = fund_with_wallet {
+            funding_wallet
+                .transfer(wallet.address().into(), 100, Default::default(), Default::default())
+                .await
+                .unwrap();
+        }
+        
         wallet
     }
 
@@ -41,7 +47,7 @@ mod tests {
         Proxy<WalletUnlocked>,
         WalletUnlocked,
     ) {
-        let mut wallet = create_wallet();
+        let mut wallet = create_wallet(None, None).await;
         let coin = (DEFAULT_COIN_AMOUNT, AssetId::default());
 
         // Generate coins for wallet
@@ -52,8 +58,10 @@ mod tests {
         }];
 
         let all_coins = setup_custom_assets_coins(wallet.address(), &asset_configs[..]);
+        let mut node_config = Config::default();
+        node_config.chain_conf.consensus_parameters.gas_costs = GasCosts::new(GasCostsValues::free());
 
-        let provider = setup_test_provider(all_coins.clone(), vec![], None, None)
+        let provider = setup_test_provider(all_coins.clone(), vec![], Some(node_config), None)
             .await
             .expect("Could not instantiate provider");
 
@@ -119,5 +127,66 @@ mod tests {
         assert_eq!(owner.value, Some(wallet.address().into()));
     }
 
+    #[tokio::test]
+    async fn test_transfer_ownership() {
+        let (_, _, proxy, wallet) = setup_env().await;
+
+        let provider = wallet.provider().clone().unwrap().to_owned();
+        let first_owner = create_wallet(Some(provider.clone()), Some(wallet.clone())).await;
+        
+        let call_result: FuelCallResponse<_> = proxy
+            .with_account(wallet.clone())
+            .unwrap()
+            .methods()
+            ._proxy_transfer_ownership(first_owner.address().into())
+            .call()
+            .await
+            .unwrap();
+
+        assert!(
+            matches!(
+                provider.tx_status(&call_result.tx_id.unwrap()).await.unwrap(), 
+                TxStatus::Success { .. }
+            )
+        );
+
+        let owner = proxy
+            .methods()
+            ._proxy_owner()
+            .call()
+            .await
+            .unwrap();
+
+        assert_eq!(owner.value, Some(first_owner.address().into()));
+
+        // Transfer a second time
+        let second_owner = create_wallet(Some(provider.clone()), Some(wallet.clone())).await;
+        
+        let call_result: FuelCallResponse<_> = proxy
+            .with_account(first_owner.clone())
+            .unwrap()
+            .methods()
+            ._proxy_transfer_ownership(second_owner.address().into())
+            .with_tx_policies(TxPolicies::default().with_gas_price(0).with_max_fee(0))
+            .call()
+            .await
+            .unwrap();
+
+        assert!(
+            matches!(
+                &provider.tx_status(&call_result.tx_id.unwrap()).await.unwrap(), 
+                TxStatus::Success { .. }
+            )
+        );
+
+        let owner = proxy
+            .methods()
+            ._proxy_owner()
+            .call()
+            .await
+            .unwrap();
+
+        assert_eq!(owner.value, Some(second_owner.address().into()));
+    }
     
 }

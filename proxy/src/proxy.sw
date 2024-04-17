@@ -26,6 +26,12 @@ abi Diamonds {
 
     #[storage(read)]
     fn _proxy_owner() -> Option<Identity>;
+
+    #[storage(read,write)]
+    fn _proxy_transfer_ownership(new_owner: Identity);
+
+    #[storage(read,write)]
+    fn _proxy_revoke_ownership();
 }
 
 impl Diamonds for Contract {
@@ -40,6 +46,40 @@ impl Diamonds for Contract {
             Some(value) => Some(value),
             None => INITIAL_OWNER,
         }
+    }
+
+    #[storage(read,write)]
+    fn _proxy_transfer_ownership(new_owner: Identity) {
+        let current_owner: Identity = 
+            match storage.owner.read() {
+                Some(value) => Some(value),
+                None => INITIAL_OWNER,
+            }.unwrap();
+
+        let sender = msg_sender().unwrap();
+
+        if sender != current_owner {
+            revert(0);
+        }
+
+        storage.owner.write(Some(new_owner));
+    }
+
+    #[storage(read,write)]
+    fn _proxy_revoke_ownership() {
+        let current_owner: Identity = 
+            match storage.owner.read() {
+                Some(value) => Some(value),
+                None => INITIAL_OWNER,
+            }.unwrap();
+
+        let sender = msg_sender().unwrap();
+
+        if sender != current_owner {
+            revert(0);
+        }
+
+        storage.owner.write(None);
     }
 }
 
