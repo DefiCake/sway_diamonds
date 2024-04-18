@@ -10,6 +10,7 @@ use std::{
 
 configurable {
     INITIAL_OWNER: Option<Identity> = None,
+    // INITIAL_FACETS => Maybe add an initial facet configuration?
 }
 
 // Inspired by EIP-2535: Diamonds, Multifacet proxy
@@ -56,7 +57,7 @@ impl Diamonds for Contract {
     fn _proxy_remove_selector(method_selector: u64) {
         _proxy_check_ownership();
 
-        storage.facets.remove(method_selector);
+        let _ = storage.facets.remove(method_selector);
     }
 
     #[storage(read, write)]
