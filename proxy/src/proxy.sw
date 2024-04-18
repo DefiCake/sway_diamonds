@@ -48,32 +48,17 @@ impl Diamonds for Contract {
         }
     }
 
+
     #[storage(read,write)]
     fn _proxy_transfer_ownership(new_owner: Identity) {
-        let current_owner: Identity = 
-            match storage.owner.read() {
-                Some(value) => Some(value),
-                None => INITIAL_OWNER,
-            }.unwrap();
-
-        let sender = msg_sender().unwrap();
-
-        require(sender == current_owner, DiamondsProxyError::Auth);
+        _proxy_check_ownership();
 
         storage.owner.write(Some(new_owner));
     }
 
     #[storage(read,write)]
     fn _proxy_revoke_ownership() {
-        let current_owner: Identity = 
-            match storage.owner.read() {
-                Some(value) => Some(value),
-                None => INITIAL_OWNER,
-            }.unwrap();
-
-        let sender = msg_sender().unwrap();
-
-        require(sender == current_owner, DiamondsProxyError::Auth);
+        _proxy_check_ownership();
 
         storage.owner.write(Some(Identity::Address(Address::from(ZERO_B256))));
     }
@@ -89,6 +74,19 @@ fn fallback() {
     };
 
     run_external(TARGET)
+}
+
+#[storage(read)]
+fn _proxy_check_ownership() {
+    let current_owner: Identity = 
+            match storage.owner.read() {
+                Some(value) => Some(value),
+                None => INITIAL_OWNER,
+            }.unwrap();
+
+    let sender = msg_sender().unwrap();
+
+    require(sender == current_owner, DiamondsProxyError::Auth);
 }
 
 
