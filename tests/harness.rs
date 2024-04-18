@@ -146,7 +146,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_function() -> FuelResult<()> {
+    async fn test_pure_function() -> FuelResult<()> {
         let (proxy, implementation, _, _) = setup_env().await;
 
         let value = 5u64;
@@ -161,6 +161,44 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(value * 2, proxy_result.value);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_storage_functions() -> FuelResult<()> {
+        let (proxy, implementation, _, wallet) = setup_env().await;
+        let provider = wallet.provider().clone().unwrap().to_owned();
+
+        let number: u64 = 64;
+
+
+        let call_result = proxy
+            .methods()
+            .set_number(number)
+            .with_contract_ids(&[implementation.contract_id().clone().into()])
+            .call()
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            provider
+                .tx_status(&call_result.tx_id.unwrap())
+                .await
+                .unwrap(),
+            TxStatus::Success { .. }
+        ));
+
+        let stored_number = proxy
+            .methods()
+            .get_number()
+            .with_contract_ids(&[implementation.contract_id().clone().into()])
+            .call()
+            .await
+            .unwrap()
+            .value;
+
+        assert_eq!(stored_number, number);
 
         Ok(())
     }
