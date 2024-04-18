@@ -6,7 +6,7 @@ mod tests {
     use fuel_tx::{Address, GasCosts, GasCostsValues};
     use fuels::{
         accounts::{provider::Provider, wallet::WalletUnlocked, Account},
-        core::codec::resolve_fn_selector,
+        core::codec::{fn_selector, resolve_fn_selector},
         prelude::{abigen, setup_test_provider, AssetId, Contract},
         programs::{call_response::FuelCallResponse, contract::LoadConfiguration},
         test_helpers::{setup_custom_assets_coins, AssetConfig, Config},
@@ -340,4 +340,66 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_remove_selector() -> FuelResult<()> {
+        let (proxy, _, proxy_admin, wallet) = setup_env().await;
+
+        let provider = wallet.provider().clone().unwrap().to_owned();
+
+        let selector = u64::from_str_radix(&hex::encode(fn_selector!(double(u64))), 16).unwrap();
+
+        let call_result = proxy_admin
+            .methods()
+            ._proxy_remove_selector(selector)
+            .call()
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            provider
+                .tx_status(&call_result.tx_id.unwrap())
+                .await
+                .unwrap(),
+            TxStatus::Success { .. }
+        ));
+
+        let error_call_result = proxy.methods().double(1).call().await;
+
+        match error_call_result.unwrap_err() {
+            FuelError::RevertTransactionError { reason, .. } => {
+                assert_eq!(&reason, "Revert(0)");
+            }
+            _ => panic!("Wrong transaction error"),
+        };
+        
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_remove_selector_auth() -> FuelResult<()> {
+        let (_, _, proxy, wallet) = setup_env().await;
+
+        let provider = wallet.provider().clone().unwrap().to_owned();
+        let mallory = create_wallet(Some(provider.clone()), Some(wallet.clone())).await;
+
+        let call_result: Result<FuelCallResponse<()>, FuelError> = proxy
+            .with_account(mallory.clone())
+            .unwrap()
+            .methods()
+            ._proxy_remove_selector(0)
+            .call()
+            .await;
+
+        match call_result.unwrap_err() {
+            FuelError::RevertTransactionError { reason, .. } => {
+                assert_eq!(&reason, "Auth");
+            }
+            _ => panic!("Wrong transaction error"),
+        };
+
+        Ok(())
+    }
+
+
 }

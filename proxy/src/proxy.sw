@@ -24,6 +24,9 @@ abi Diamonds {
     #[storage(read, write)]
     fn _proxy_set_facet_for_selector(method_selector: u64, facet: ContractId);
 
+    #[storage(read, write)]
+    fn _proxy_remove_selector(method_selector: u64);
+
     #[storage(read)]
     fn _proxy_owner() -> Option<Identity>;
 
@@ -35,11 +38,6 @@ abi Diamonds {
 }
 
 impl Diamonds for Contract {
-    #[storage(read, write)]
-    fn _proxy_set_facet_for_selector(method_selector: u64, facet: ContractId) {
-        _proxy_check_ownership();
-        storage.facets.insert(method_selector, facet);
-    }
 
     #[storage(read)]
     fn _proxy_owner() -> Option<Identity> {
@@ -49,6 +47,17 @@ impl Diamonds for Contract {
         }
     }
 
+    #[storage(read, write)]
+    fn _proxy_set_facet_for_selector(method_selector: u64, facet: ContractId) {
+        _proxy_check_ownership();
+        storage.facets.insert(method_selector, facet);
+    }
+
+    #[storage(read, write)]
+    fn _proxy_remove_selector(method_selector: u64) {
+        _proxy_check_ownership();
+        storage.facets.remove(method_selector);
+    }
 
     #[storage(read,write)]
     fn _proxy_transfer_ownership(new_owner: Identity) {
