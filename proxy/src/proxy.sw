@@ -9,7 +9,6 @@ use std::{
 };
 
 configurable {
-    TARGET: ContractId = ContractId::from(ZERO_B256),
     INITIAL_OWNER: Option<Identity> = None,
 }
 
@@ -81,12 +80,10 @@ impl Diamonds for Contract {
 fn fallback() {
     let method_selector = first_param();
 
-    let facet = match storage.facets.get(method_selector).try_read() {
+    match storage.facets.get(method_selector).try_read() {
         None => revert(0), // Cannot use require (log): https://github.com/FuelLabs/sway/issues/5850
-        Some(facet) => facet,
+        Some(facet) => run_external(facet),
     };
-
-    run_external(TARGET)
 }
 
 #[storage(read)]

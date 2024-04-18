@@ -96,7 +96,6 @@ mod tests {
 
         let proxy_configuration = LoadConfiguration::default().with_configurables(
             ProxyConfigurables::default()
-                .with_TARGET(implementation_contract_id.clone().into())
                 .with_INITIAL_OWNER(Some(wallet.clone().address().into())),
         );
 
