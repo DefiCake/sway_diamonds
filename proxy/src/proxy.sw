@@ -22,7 +22,7 @@ storage {
 
 abi Diamonds {
     #[storage(read, write)]
-    fn set_facet_for_selector(method_selector: u64, facet: ContractId);
+    fn _proxy_set_facet_for_selector(method_selector: u64, facet: ContractId);
 
     #[storage(read)]
     fn _proxy_owner() -> Option<Identity>;
@@ -36,7 +36,7 @@ abi Diamonds {
 
 impl Diamonds for Contract {
     #[storage(read, write)]
-    fn set_facet_for_selector(method_selector: u64, facet: ContractId) {
+    fn _proxy_set_facet_for_selector(method_selector: u64, facet: ContractId) {
         storage.facets.insert(method_selector, facet);
     }
 
@@ -83,7 +83,10 @@ impl Diamonds for Contract {
 fn fallback() {
     let method_selector = first_param();
 
-    let _ = storage.facets.get(method_selector).try_read();
+    let facet = match storage.facets.get(method_selector).try_read() {
+        None => revert(0), // Cannot use require (log): https://github.com/FuelLabs/sway/issues/5850
+        Some(facet) => facet,
+    };
 
     run_external(TARGET)
 }
@@ -91,5 +94,4 @@ fn fallback() {
 
 pub enum DiamondsProxyError {
     Auth: (),
-    Auth2: (),
 }
