@@ -58,9 +58,7 @@ impl Diamonds for Contract {
 
         let sender = msg_sender().unwrap();
 
-        if sender != current_owner {
-            revert(0);
-        }
+        require(sender == current_owner, DiamondsProxyError::Auth);
 
         storage.owner.write(Some(new_owner));
     }
@@ -75,11 +73,9 @@ impl Diamonds for Contract {
 
         let sender = msg_sender().unwrap();
 
-        if sender != current_owner {
-            revert(0);
-        }
+        require(sender == current_owner, DiamondsProxyError::Auth);
 
-        storage.owner.write(None);
+        storage.owner.write(Some(Identity::Address(Address::from(ZERO_B256))));
     }
 }
 
@@ -90,4 +86,10 @@ fn fallback() {
     let _ = storage.facets.get(method_selector).try_read();
 
     run_external(TARGET)
+}
+
+
+pub enum DiamondsProxyError {
+    Auth: (),
+    Auth2: (),
 }

@@ -2,12 +2,13 @@ mod tests {
     use std::mem::size_of;
 
     use fuel_core_types::fuel_vm::SecretKey;
-    use fuel_tx::{GasCosts, GasCostsValues};
+    use fuel_tx::{Address, GasCosts, GasCostsValues};
     use fuels::{
         accounts::{provider::Provider, wallet::WalletUnlocked, Account},
         prelude::{abigen, setup_test_provider, AssetId, Contract},
         programs::{call_response::FuelCallResponse, contract::LoadConfiguration},
-        test_helpers::{setup_custom_assets_coins, AssetConfig, Config}, types::{transaction::TxPolicies, tx_status::TxStatus},
+        test_helpers::{setup_custom_assets_coins, AssetConfig, Config}, 
+        types::{transaction::TxPolicies, tx_status::TxStatus, errors::Error as FuelError},
     };
 
     abigen!(
@@ -189,4 +190,85 @@ mod tests {
         assert_eq!(owner.value, Some(second_owner.address().into()));
     }
     
+
+    #[tokio::test]
+    async fn test_transfer_ownership_auth() {
+        let (_, _, proxy, wallet) = setup_env().await;
+
+        let provider = wallet.provider().clone().unwrap().to_owned();
+        let mallory = create_wallet(Some(provider.clone()), Some(wallet.clone())).await;
+        
+        let call_result: Result<FuelCallResponse<()>, FuelError> = proxy
+            .with_account(mallory.clone())
+            .unwrap()
+            .methods()
+            ._proxy_transfer_ownership(mallory.address().into())
+            .call()
+            .await;
+            
+        match call_result.unwrap_err() {
+            FuelError::RevertTransactionError { reason, .. } => {
+                assert_eq!(&reason, "Auth");
+            },
+            _ => panic!("Wrong transaction error"),
+            
+        };
+    }
+    
+
+    #[tokio::test]
+    async fn test_revoke_ownership() {
+        let (_, _, proxy, wallet) = setup_env().await;
+
+        let provider = wallet.provider().clone().unwrap().to_owned();
+        
+        let call_result: FuelCallResponse<_> = proxy
+            .with_account(wallet.clone())
+            .unwrap()
+            .methods()
+            ._proxy_revoke_ownership()
+            .call()
+            .await
+            .unwrap();
+
+        assert!(
+            matches!(
+                provider.tx_status(&call_result.tx_id.unwrap()).await.unwrap(), 
+                TxStatus::Success { .. }
+            )
+        );
+
+        let owner = proxy
+            .methods()
+            ._proxy_owner()
+            .call()
+            .await
+            .unwrap();
+
+        assert_eq!(owner.value, Some(fuels::types::Identity::Address(Address::zeroed())));
+    }
+    
+    #[tokio::test]
+    async fn test_revoke_ownership_auth() {
+        let (_, _, proxy, wallet) = setup_env().await;
+
+        let provider = wallet.provider().clone().unwrap().to_owned();
+        let mallory = create_wallet(Some(provider.clone()), Some(wallet.clone())).await;
+        
+        let call_result: Result<FuelCallResponse<()>, FuelError> = proxy
+            .with_account(mallory.clone())
+            .unwrap()
+            .methods()
+            ._proxy_revoke_ownership()
+            .call()
+            .await;
+            
+        match call_result.unwrap_err() {
+            FuelError::RevertTransactionError { reason, .. } => {
+                assert_eq!(&reason, "Auth");
+            },
+            _ => panic!("Wrong transaction error"),
+            
+        };
+    }
 }
