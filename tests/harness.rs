@@ -315,4 +315,29 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_set_facet_auth() -> FuelResult<()> {
+        let (_, _, proxy, wallet) = setup_env().await;
+
+        let provider = wallet.provider().clone().unwrap().to_owned();
+        let mallory = create_wallet(Some(provider.clone()), Some(wallet.clone())).await;
+
+        let call_result: Result<FuelCallResponse<()>, FuelError> = proxy
+            .with_account(mallory.clone())
+            .unwrap()
+            .methods()
+            ._proxy_set_facet_for_selector(0, proxy.contract_id().clone())
+            .call()
+            .await;
+
+        match call_result.unwrap_err() {
+            FuelError::RevertTransactionError { reason, .. } => {
+                assert_eq!(&reason, "Auth");
+            }
+            _ => panic!("Wrong transaction error"),
+        };
+
+        Ok(())
+    }
 }

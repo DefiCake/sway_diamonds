@@ -37,6 +37,7 @@ abi Diamonds {
 impl Diamonds for Contract {
     #[storage(read, write)]
     fn _proxy_set_facet_for_selector(method_selector: u64, facet: ContractId) {
+        _proxy_check_ownership();
         storage.facets.insert(method_selector, facet);
     }
 
