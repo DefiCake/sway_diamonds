@@ -10,14 +10,14 @@ use std::{
 
 configurable {
     TARGET: ContractId = ContractId::from(ZERO_B256),
-    INITIAL_OWNER: Option<Identity> = None
+    INITIAL_OWNER: Option<Identity> = None,
 }
 
 // Inspired by EIP-2535: Diamonds, Multifacet proxy
 #[namespace(diamonds)]
 storage {
     facets: StorageMap<u64, ContractId> = StorageMap {},
-    owner: Option<Identity> = None
+    owner: Option<Identity> = None,
 }
 
 abi Diamonds {
@@ -30,15 +30,14 @@ abi Diamonds {
     #[storage(read)]
     fn _proxy_owner() -> Option<Identity>;
 
-    #[storage(read,write)]
+    #[storage(read, write)]
     fn _proxy_transfer_ownership(new_owner: Identity);
 
-    #[storage(read,write)]
+    #[storage(read, write)]
     fn _proxy_revoke_ownership();
 }
 
 impl Diamonds for Contract {
-
     #[storage(read)]
     fn _proxy_owner() -> Option<Identity> {
         match storage.owner.read() {
@@ -50,27 +49,31 @@ impl Diamonds for Contract {
     #[storage(read, write)]
     fn _proxy_set_facet_for_selector(method_selector: u64, facet: ContractId) {
         _proxy_check_ownership();
+
         storage.facets.insert(method_selector, facet);
     }
 
     #[storage(read, write)]
     fn _proxy_remove_selector(method_selector: u64) {
         _proxy_check_ownership();
+
         storage.facets.remove(method_selector);
     }
 
-    #[storage(read,write)]
+    #[storage(read, write)]
     fn _proxy_transfer_ownership(new_owner: Identity) {
         _proxy_check_ownership();
 
         storage.owner.write(Some(new_owner));
     }
 
-    #[storage(read,write)]
+    #[storage(read, write)]
     fn _proxy_revoke_ownership() {
         _proxy_check_ownership();
 
-        storage.owner.write(Some(Identity::Address(Address::from(ZERO_B256))));
+        storage
+            .owner
+            .write(Some(Identity::Address(Address::from(ZERO_B256))));
     }
 }
 
@@ -88,17 +91,15 @@ fn fallback() {
 
 #[storage(read)]
 fn _proxy_check_ownership() {
-    let current_owner: Identity = 
-            match storage.owner.read() {
-                Some(value) => Some(value),
-                None => INITIAL_OWNER,
-            }.unwrap();
+    let current_owner: Identity = match storage.owner.read() {
+        Some(value) => Some(value),
+        None => INITIAL_OWNER,
+    }.unwrap();
 
     let sender = msg_sender().unwrap();
 
     require(sender == current_owner, DiamondsProxyError::Auth);
 }
-
 
 pub enum DiamondsProxyError {
     Auth: (),

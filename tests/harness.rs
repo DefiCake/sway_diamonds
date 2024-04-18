@@ -372,7 +372,7 @@ mod tests {
             }
             _ => panic!("Wrong transaction error"),
         };
-        
+
         Ok(())
     }
 
@@ -400,6 +400,4 @@ mod tests {
 
         Ok(())
     }
-
-
 }
