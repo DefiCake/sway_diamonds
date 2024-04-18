@@ -17,6 +17,7 @@ configurable {
 #[namespace(diamonds)]
 storage {
     facets: StorageMap<u64, ContractId> = StorageMap {},
+    // TODO: facet_to_selectors: map for contract_id => [selectors]
     owner: Option<Identity> = None,
 }
 
