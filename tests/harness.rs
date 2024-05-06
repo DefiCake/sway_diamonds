@@ -14,7 +14,7 @@ mod tests {
             errors::{Error as FuelError, Result as FuelResult},
             param_types::ParamType,
             transaction::TxPolicies,
-            tx_status::TxStatus,
+            tx_status::TxStatus, Bits256,
         },
     };
 
@@ -146,7 +146,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_pure_function() -> FuelResult<()> {
+    async fn test_pure_function_u64() -> FuelResult<()> {
         let (proxy, implementation, _, _) = setup_env().await;
 
         let value = 5u64;
@@ -166,7 +166,47 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_storage_functions() -> FuelResult<()> {
+    async fn test_pure_function_b256() -> FuelResult<()> {
+        let (proxy, implementation, _, _) = setup_env().await;
+
+        let value = Bits256::from_hex_str("0x00000000000000000000000059F2f1fCfE2474fD5F0b9BA1E73ca90b143Eb8d0").unwrap();
+        let result = implementation.methods().test_function().call().await.unwrap();
+        assert_eq!(value, result.value);
+
+        let proxy_result = proxy
+            .methods()
+            .test_function()
+            .with_contract_ids(&[implementation.contract_id().clone().into()])
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(value, proxy_result.value);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pure_function_b256_2() -> FuelResult<()> {
+        let (proxy, implementation, _, _) = setup_env().await;
+
+        let value = Bits256::from_hex_str("0x0000000000000000000000001111111111111111111111111111111111111111").unwrap();
+        let result = implementation.methods().test_function_2().call().await.unwrap();
+        assert_eq!(value, result.value);
+
+        let proxy_result = proxy
+            .methods()
+            .test_function_2()
+            .with_contract_ids(&[implementation.contract_id().clone().into()])
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(value, proxy_result.value);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_storage_functions_u64() -> FuelResult<()> {
         let (proxy, implementation, _, wallet) = setup_env().await;
         let provider = wallet.provider().clone().unwrap().to_owned();
 
@@ -202,6 +242,84 @@ mod tests {
 
         Ok(())
     }
+
+
+    #[tokio::test]
+    async fn test_storage_functions_b256() -> FuelResult<()> {
+        let (proxy, implementation, _, wallet) = setup_env().await;
+        let provider = wallet.provider().clone().unwrap().to_owned();
+
+        let value = Bits256::from_hex_str("0x0101010101010101010101010101010101010101010101010101010101010101")?;
+
+
+        let call_result = proxy
+            .methods()
+            .set_bits(value)
+            .with_contract_ids(&[implementation.contract_id().clone().into()])
+            .call()
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            provider
+                .tx_status(&call_result.tx_id.unwrap())
+                .await
+                .unwrap(),
+            TxStatus::Success { .. }
+        ));
+
+        let stored_value = proxy
+            .methods()
+            .get_bits()
+            .with_contract_ids(&[implementation.contract_id().clone().into()])
+            .call()
+            .await
+            .unwrap()
+            .value;
+
+        assert_eq!(stored_value, value);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_storage_functions_b256_2() -> FuelResult<()> {
+        let (proxy, implementation, _, wallet) = setup_env().await;
+        let provider = wallet.provider().clone().unwrap().to_owned();
+
+        let value = Bits256::from_hex_str("0x0101010101010101010101010101010101010101010101010101010101010101")?;
+
+
+        let call_result = proxy
+            .methods()
+            .set_bits2(value)
+            .with_contract_ids(&[implementation.contract_id().clone().into()])
+            .call()
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            provider
+                .tx_status(&call_result.tx_id.unwrap())
+                .await
+                .unwrap(),
+            TxStatus::Success { .. }
+        ));
+
+        let stored_value = proxy
+            .methods()
+            .get_bits2()
+            .with_contract_ids(&[implementation.contract_id().clone().into()])
+            .call()
+            .await
+            .unwrap()
+            .value;
+
+        assert_eq!(stored_value, value);
+
+        Ok(())
+    }
+
 
     #[tokio::test]
     async fn test_initial_ownership() -> FuelResult<()> {
